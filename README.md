@@ -1,3 +1,3 @@
 # Spider
 Spider for shuzheng DB
-init
+original url - http://m.shuzheng.com/do.php?op=shujuziyuan
