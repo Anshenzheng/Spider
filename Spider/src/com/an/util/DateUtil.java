@@ -1,12 +1,20 @@
 package com.an.util;
 
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class DateUtil {
+	private static String datepatter = "yyyy-MM-dd";
+	private static SimpleDateFormat dateFormatter = new SimpleDateFormat(datepatter);
+	
+	public static String dateToString(Date date){
+		return dateFormatter.format(date);
+	}
 
 	public static List<String> generateDataList(String fromDate, String toDate) throws Exception{
 
