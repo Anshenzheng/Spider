@@ -25,7 +25,6 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import com.an.model.MainFrame;
-import com.an.util.DateUtil;
 import com.an.util.ExcelHelper;
 
 public class Spider {
@@ -106,12 +105,12 @@ public class Spider {
 	}
 
 	public static Elements fetchFieldsValue(String url) throws Exception {
-		MainFrame.appendInfo("fetching " + url);
 		Document doc = Jsoup.connect(url).timeout(5000).get();
 		Element elem = doc.getElementById("zhengwen");
 		String name = elem.child(0).text();
 		Elements fields = elem.child(1).select("tr");
 		fields.attr("name", name);
+		MainFrame.appendInfo("Get " + name + " from : " + url);
 		return elem.child(1).select("tr");
 	}
 
@@ -131,6 +130,7 @@ public class Spider {
 			HttpResponse response = new DefaultHttpClient().execute(httppost);
 			String location = response.getHeaders("location")[0].getValue();
 			String relocatedUrl = HOST_URL + location;
+			MainFrame.appendInfo("Fetching ids for relocated Url " + relocatedUrl);
 			return fetchIdUrlViaRelocatedUrl(relocatedUrl);
 		} catch (Exception e) {
 			throw e;
@@ -167,13 +167,9 @@ public class Spider {
 		return urlList;
 	}
 
-	public static List<String> fetchIdUrlsByDateRange(String fromDate, String toDate) throws Exception{
+	public static List<String> fetchIdUrlsByDateRange(List<String> dates) throws Exception{
 
-		MainFrame.appendInfo("Generating date list....");
-		// Step 1 - Generate date list
-		List<String> dates = DateUtil.generateDataList(fromDate, toDate);
-
-		MainFrame.appendInfo("Fetching relocated urls....");
+		MainFrame.appendInfo("\r\nStart fetching relocated urls....");
 		// Step 2 - Fetch relocated Urls
 		List<String> relocatedUrls = new ArrayList<>();
 		dates.parallelStream().forEach(date -> {
@@ -185,7 +181,7 @@ public class Spider {
 			}
 		});
 		
-		MainFrame.appendInfo("Fetching ID urls....");
+		MainFrame.appendInfo("\r\nStart fetching ID urls....");
 		// Step 3 - Fetch ID Urls
 		List<String> idUrls = new ArrayList<>();
 		relocatedUrls.parallelStream().forEach(relocatedUrl -> {
@@ -203,19 +199,19 @@ public class Spider {
 	 * @Description: Fetch data via dates
 	 * 
 	 */
-	public static void fetchDataByDate(String fromDate, String toDate, String fileName) throws Exception {
+	public static void fetchDataByDate(List<String> dates, String fileName) throws Exception {
 
 		Workbook wb = new HSSFWorkbook();
 		OutputStream stream = null;
 
 		try {
-			Sheet sheet = (Sheet) wb.createSheet(fromDate+"_"+toDate);
+			Sheet sheet = (Sheet) wb.createSheet("Drug Date");
 			ExcelHelper.createHeader(sheet);
-			feedData2Sheet(fetchDataViaUrls(fetchIdUrlsByDateRange(fromDate, toDate)), sheet);
+			feedData2Sheet(fetchDataViaUrls(fetchIdUrlsByDateRange(dates)), sheet);
 			
 			stream = new FileOutputStream(fileName);
 			wb.write(stream);
-			MainFrame.appendInfo("Done.");
+			MainFrame.appendInfo("\r\nDone.");
 			CURRENT_EXCELL_ROW_NUM = 1;
 		} catch (Exception e) {
 			throw e;
