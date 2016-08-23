@@ -7,6 +7,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
@@ -21,6 +23,11 @@ import javax.swing.SwingConstants;
 
 import com.an.startup.Spider;
 import com.an.util.CommonUtil;
+import com.an.util.DateUtil;
+
+import net.sourceforge.jdatepicker.impl.JDatePanelImpl;
+import net.sourceforge.jdatepicker.impl.JDatePickerImpl;
+import net.sourceforge.jdatepicker.impl.UtilDateModel;
 
 public class MainFrame extends JFrame implements ActionListener {
         
@@ -36,9 +43,16 @@ public class MainFrame extends JFrame implements ActionListener {
     JLabel fromDateLabel = new JLabel("From Date:");  
     JLabel toDateLabel = new JLabel("To Date:");  
     JTextField outputPathText = new JTextField(); 
-    JTextField fromDateText = new JTextField(); 
-    JTextField toDateText = new JTextField(); 
+   
+    UtilDateModel model = new UtilDateModel();
+    JDatePanelImpl datePanel = new JDatePanelImpl(model);
+    JDatePickerImpl fromDateText = new JDatePickerImpl(datePanel);
     
+    UtilDateModel model2 = new UtilDateModel();
+    JDatePanelImpl datePanel2 = new JDatePanelImpl(model2);
+    JDatePickerImpl toDateText = new JDatePickerImpl(datePanel2);
+
+    		
     public static  JTextArea queryInfo = new JTextArea();  
     JScrollPane scroll = new JScrollPane(queryInfo); 
     
@@ -47,9 +61,12 @@ public class MainFrame extends JFrame implements ActionListener {
     JButton selectFileBtn = new JButton("Select File"); 
     JFileChooser jfc = new JFileChooser(); 
     JButton OKBtn = new JButton("Start Spider"); 
+    JButton closeBtn = new JButton("Quit"); 
     
-      
+    Thread thread;
     MainFrame() {  
+    	fromDateText.setLocale(Locale.US);
+    	toDateText.setLocale(Locale.US);
     	//Set init Directory as C://
         jfc.setCurrentDirectory(new File("c://"));
           
@@ -67,14 +84,14 @@ public class MainFrame extends JFrame implements ActionListener {
         selectFileBtn.setBounds(380, 10, 80, 30);  
         fromDateLabel.setBounds(10, 45, 70, 30);  
         toDateLabel.setBounds(280, 45, 70, 30);  
-        fromDateText.setBounds(75, 45, 120, 30);  
-        fromDateText.setToolTipText("Please input YYYY-MM-DD format Date");
-        toDateText.setBounds(340,45,120,30);
-        toDateText.setToolTipText("Please input YYYY-MM-DD format Date");
+        fromDateText.setBounds(75, 45, 120, 26);  
+        toDateText.setBounds(340,45,120,26);
         OKBtn.setBounds(75, 85, 120, 30);  
+        closeBtn.setBounds(200,85,120,30);
         scroll.setBounds(10, 130, 510, 200);  
         authorLabel.setBounds(10, 350, 500, 30);
         authorLabel.setHorizontalAlignment(SwingConstants.CENTER);
+       
         
         queryInfo.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         queryInfo.setEditable(false);
@@ -85,6 +102,7 @@ public class MainFrame extends JFrame implements ActionListener {
         
         selectFileBtn.addActionListener(this); 
         OKBtn.addActionListener(this); 
+        closeBtn.addActionListener(this); 
         con.add(outputPathLabel);  
         con.add(outputPathText);  
         con.add(selectFileBtn);  
@@ -93,6 +111,7 @@ public class MainFrame extends JFrame implements ActionListener {
         con.add(fromDateText);  
         con.add(toDateText);  
         con.add(OKBtn);  
+        con.add(closeBtn);  
         con.add(scroll);  
         con.add(authorLabel);  
         frame.setVisible(true); 
@@ -115,14 +134,34 @@ public class MainFrame extends JFrame implements ActionListener {
         if (e.getSource().equals(OKBtn)) {  
            
         	String outputPath = outputPathText.getText();
-        	String fromDate = fromDateText.getText();
-        	String toDate = toDateText.getText();
+        	
+        	Date dateFrom = (Date)fromDateText.getModel().getValue();
+        	Date dateto =   (Date)toDateText.getModel().getValue();
+        	
+        	String fromDate = DateUtil.dateToString(dateFrom);
+        	String toDate = DateUtil.dateToString(dateto);
         	if(CommonUtil.isNotNullOrEmpty(outputPath) && CommonUtil.isNotNullOrEmpty(fromDate) && CommonUtil.isNotNullOrEmpty(toDate)){
         		try {
-        			queryInfo.setText("Start loading...\r\n");
+        			queryInfo.setText("");
+        	    	queryInfo.paintImmediately(queryInfo.getBounds());
+        			MainFrame.appendInfo("Start crawling data from website...\r\n");
+        			MainFrame.appendInfo("Start generating date list....");
+        			// Step 1 - Generate date list
+        			List<String> dates = DateUtil.generateDataList(fromDate, toDate);
         			String fileName = outputPath + "\\"+fromDate+"_"+toDate+"_"+new Date().getTime()+".xls";
-        			MainFrame.appendInfo("Start loading data to file " + fileName + " ...");
-        			Spider.fetchDataByDate(fromDate, toDate, fileName);
+        			MainFrame.appendInfo("Data will be export to file " + fileName);
+        			thread = new Thread(()->{
+        				try {
+							Spider.fetchDataByDate(dates, fileName);
+						} catch (Exception exception) {
+							exception.printStackTrace();
+						}
+						OKBtn.setEnabled(true);
+
+        			});
+        			
+        			thread.start();
+        			OKBtn.setEnabled(false);
 				} catch (Exception e1) {
 					JOptionPane.showMessageDialog(null, e1.getMessage(), "error", 2);  
 				}
@@ -130,10 +169,16 @@ public class MainFrame extends JFrame implements ActionListener {
                 JOptionPane.showMessageDialog(null, "Please input specified fields", "warning", 2);  
         	}
         }  
+        if(e.getSource().equals(closeBtn)){
+        	int close = JOptionPane.showConfirmDialog(null, "Are you sure to quit?", "Confirm to Quit", 0);
+        	if(close == 0){
+            	System.exit(ABORT);
+        	}
+        }
     }  
     
     public static void appendInfo(String info){
-    	if(queryInfo.getText().length() > 100000){
+    	if(queryInfo.getText().length() > 10000){
     		queryInfo.setText("");
     	}
     	queryInfo.setText(queryInfo.getText() + "\r\n" + info);
